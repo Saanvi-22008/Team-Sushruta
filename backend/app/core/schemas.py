@@ -89,3 +89,52 @@ class DoseRequestIn(BaseModel):
 
     requested_dose_mj: float
     requested_duration_s: float
+
+
+# ---------------------------------------------------------------------------
+# Output schemas (ingestion + dose). Not input contracts, but kept strict so
+# the OpenAPI surface stays honest about what the server returns.
+# ---------------------------------------------------------------------------
+class ReadingAccepted(BaseModel):
+    """Result of ingesting one reading: id + the freshly-computed status."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    reading_id: int
+    status: StatusOut
+
+
+class BatchItemResult(BaseModel):
+    """Per-item outcome for a batch ingest (207 Multi-Status)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    index: int
+    outcome: str  # stored | duplicate | invalid
+    reading_id: Optional[int] = None
+    status: Optional[StatusOut] = None
+    errors: Optional[list[str]] = None
+
+
+class DoseGranted(BaseModel):
+    """201 payload for a granted dose request."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    outcome: str  # granted
+    granted_params: dict
+    next_allowed_at: Optional[datetime] = None
+    enforced_limits: dict
+    reason: str
+
+
+class DoseDenied(BaseModel):
+    """409 payload for a denied dose request."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    outcome: str  # denied
+    reason_code: str
+    reason: str
+    enforced_limits: dict
+    next_allowed_at: Optional[datetime] = None
