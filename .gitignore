@@ -61,10 +61,14 @@ dmypy.json
 # Jupyter
 .ipynb_checkpoints/
 
-# Databases (local/dev SQLite)
+# Databases (local/dev SQLite, incl. WAL/SHM sidecars)
 *.sqlite
 *.sqlite3
 *.db
+*.db-wal
+*.db-shm
+*.sqlite-wal
+*.sqlite-shm
 
 # ---------------------------------------------------------------------------
 # Node / JavaScript / frontend
