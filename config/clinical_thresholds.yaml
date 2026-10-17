@@ -1,0 +1,28 @@
+# Clinical thresholds for the deterministic rules engine.
+# EVERY clinical value below is a PLACEHOLDER: verify with literature/clinician.
+# These are NOT clinically validated numbers; this is a proof of concept, not a medical device.
+
+plausible:
+  ph: {min: 0.0, max: 14.0}            # PLACEHOLDER: verify with literature/clinician
+  skin_temp_c: {min: 20.0, max: 45.0}  # PLACEHOLDER: verify with literature/clinician
+  moisture_pct: {min: 0.0, max: 100.0} # PLACEHOLDER: verify with literature/clinician
+  battery_pct: {min: 0.0, max: 100.0}  # PLACEHOLDER: verify with literature/clinician
+
+freshness_window_s: 1800               # PLACEHOLDER: verify with literature/clinician
+clock_skew_tolerance_s: 300            # PLACEHOLDER: verify with literature/clinician
+low_battery_pct: 15                    # PLACEHOLDER: verify with literature/clinician
+trend_window_s: 86400                  # PLACEHOLDER: verify with literature/clinician
+
+ph:
+  watch_above: 7.6                     # PLACEHOLDER: verify with literature/clinician
+  infection_risk_above: 8.0           # PLACEHOLDER: verify with literature/clinician
+
+skin_temp_c:
+  watch_above: 34.0                    # PLACEHOLDER: verify with literature/clinician
+  infection_risk_above: 35.5          # PLACEHOLDER: verify with literature/clinician
+
+moisture_pct:
+  watch_above: 70                      # PLACEHOLDER: verify with literature/clinician
+
+no_improvement_days: 5                 # PLACEHOLDER: verify with literature/clinician  (N)
+unknown_attr_policy: conservative      # conservative => don't downgrade on unknown attributes

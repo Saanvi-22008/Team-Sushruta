@@ -1,0 +1,11 @@
+# Hard dose caps enforced ENTIRELY in backend code (never from request bodies).
+# EVERY clinical value below is a PLACEHOLDER: verify with literature/clinician.
+# This is a proof of concept, not a medical device.
+
+dose:
+  max_dose_mj: 100          # PLACEHOLDER: verify with literature/clinician
+  max_session_s: 120        # PLACEHOLDER: verify with literature/clinician
+  min_gap_s: 14400          # PLACEHOLDER: verify with literature/clinician  (4h)
+  max_daily_sessions: 3     # PLACEHOLDER: verify with literature/clinician
+  clamp: false              # deny over-limit requests; do NOT silently clamp
+  block_on_escalate: true   # deny dose while status is escalate / red flag active
