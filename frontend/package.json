@@ -1,0 +1,25 @@
+{
+  "name": "sushruta-dashboard",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Sushruta smart-bandage live-status dashboard (proof of concept, not a medical device).",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.4.8",
+    "@testing-library/react": "^16.0.1",
+    "@vitejs/plugin-react": "^4.3.1",
+    "jsdom": "^25.0.0",
+    "vite": "^5.4.8",
+    "vitest": "^2.1.2"
+  }
+}
