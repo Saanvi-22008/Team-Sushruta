@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shusuta — Smart Bandage Dashboard (Reference Mock)</title>
+  <!--
+    REFERENCE DESIGN MOCK — static, no backend, no live data.
+    Purpose: visual identity + layout reference for the Sushruta app.
+    All values shown are SIMULATED placeholders. This is a proof of concept,
+    NOT a medical device. The product spells the name "Sushruta"; this file
+    keeps the original "shusuta" spelling only in its filename/title per brief.
+    Build the real UI to substantially improve UX and accessibility over this.
+  -->
+  <style>
+    :root {
+      /* Calm, soft, warm, light-by-default palette */
+      --bg: #faf6f1;
+      --surface: #ffffff;
+      --surface-alt: #f3ece4;
+      --ink: #2b2622;
+      --ink-soft: #5c524a;
+      --accent: #c9735a;      /* warm terracotta */
+      --accent-ink: #ffffff;
+      --focus: #1b5e9b;
+
+      /* Status colours (always paired with icon + words, never colour alone) */
+      --ok-bg: #e4f3e8;      --ok-ink: #1f5130;   --ok-line: #2f8a4e;
+      --watch-bg: #fff2d8;   --watch-ink: #6b4a05; --watch-line: #b8860b;
+      --risk-bg: #ffe6dc;    --risk-ink: #7a2d16; --risk-line: #c0532f;
+      --escalate-bg: #fde1e1; --escalate-ink: #7d1515; --escalate-line: #c62828;
+
+      --radius: 18px;
+      --shadow: 0 2px 10px rgba(80, 60, 45, 0.08);
+      /* Base text >= 18px; size scale is user-selectable (see buttons) */
+      --font-scale: 1;
+      --base-size: calc(18px * var(--font-scale));
+    }
+
+    html[data-size="large"]  { --font-scale: 1.18; }
+    html[data-size="xlarge"] { --font-scale: 1.4; }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Noto Sans", system-ui, -apple-system, sans-serif;
+      font-size: var(--base-size);
+      line-height: 1.5;
+      color: var(--ink);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+    }
+
+    a { color: var(--focus); }
+
+    /* Visible focus everywhere */
+    :focus-visible {
+      outline: 3px solid var(--focus);
+      outline-offset: 2px;
+      border-radius: 6px;
+    }
+
+    .skip-link {
+      position: absolute;
+      left: -999px;
+      top: 0;
+      background: var(--surface);
+      padding: 12px 18px;
+      border-radius: 0 0 var(--radius) 0;
+      z-index: 100;
+    }
+    .skip-link:focus { left: 0; }
+
+    header.app-bar {
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      padding: 14px clamp(16px, 4vw, 40px);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 1.3em;
+    }
+    .brand .mark {
+      width: 42px; height: 42px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent), #e0a05a);
+      display: grid; place-items: center;
+      color: #fff; font-size: 1.1em;
+    }
+    .brand small {
+      display: block;
+      font-size: 0.6em;
+      font-weight: 500;
+      color: var(--ink-soft);
+    }
+
+    .app-bar .spacer { flex: 1 1 auto; }
+
+    .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+    /* Touch targets >= 48px */
+    button, .btn {
+      min-height: 48px;
+      min-width: 48px;
+      font-size: 1em;
+      font-family: inherit;
+      border-radius: 12px;
+      border: 2px solid transparent;
+      padding: 10px 16px;
+      cursor: pointer;
+      background: var(--surface-alt);
+      color: var(--ink);
+    }
+    button:hover { border-color: var(--accent); }
+
+    .lang-toggle, .size-group { display: flex; gap: 6px; }
+    .size-group button[aria-pressed="true"],
+    .lang-toggle button[aria-pressed="true"] {
+      background: var(--accent);
+      color: var(--accent-ink);
+    }
+
+    .emergency {
+      background: var(--escalate-line);
+      color: #fff;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .emergency:hover { border-color: #fff; }
+
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: clamp(16px, 4vw, 36px) clamp(16px, 4vw, 40px) 120px;
+    }
+
+    .page-title { font-size: 1.5em; margin: 8px 0 4px; }
+    .page-sub { color: var(--ink-soft); margin: 0 0 24px; }
+
+    /* ---- Primary status banner: one clear message per screen ---- */
+    .status-card {
+      border-radius: var(--radius);
+      padding: 24px;
+      display: flex;
+      gap: 18px;
+      align-items: flex-start;
+      box-shadow: var(--shadow);
+      border-left: 10px solid;
+      margin-bottom: 10px;
+    }
+    .status-card .icon {
+      font-size: 2.4em;
+      line-height: 1;
+      flex: 0 0 auto;
+    }
+    .status-card h2 { margin: 0 0 6px; font-size: 1.4em; }
+    .status-card p { margin: 0; }
+
+    .status-ok       { background: var(--ok-bg);       color: var(--ok-ink);       border-color: var(--ok-line); }
+    .status-watch    { background: var(--watch-bg);    color: var(--watch-ink);    border-color: var(--watch-line); }
+    .status-risk     { background: var(--risk-bg);     color: var(--risk-ink);     border-color: var(--risk-line); }
+    .status-escalate { background: var(--escalate-bg); color: var(--escalate-ink); border-color: var(--escalate-line); }
+
+    .meta-row {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      color: var(--ink-soft);
+      font-size: 0.9em;
+      margin: 0 0 28px;
+      align-items: center;
+    }
+    .pill {
+      background: var(--surface);
+      border: 1px solid #e5dace;
+      border-radius: 999px;
+      padding: 6px 14px;
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .sim-tag {
+      background: #efe4ff;
+      color: #4a2d82;
+      border-color: #d6c2f5;
+      font-weight: 600;
+    }
+    .sensor-ok      { color: var(--ok-line); font-weight: 600; }
+    .sensor-drift   { color: var(--watch-line); font-weight: 600; }
+    .sensor-offline { color: var(--escalate-line); font-weight: 600; }
+
+    /* ---- Reading cards ---- */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .reading {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+    .reading .label {
+      color: var(--ink-soft);
+      font-size: 0.95em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .reading .value {
+      font-size: 2.1em;
+      font-weight: 700;
+      margin: 8px 0 2px;
+    }
+    .reading .value .unit { font-size: 0.5em; color: var(--ink-soft); font-weight: 600; }
+    .reading .trend { font-size: 0.9em; color: var(--ink-soft); }
+    .reading .updated { font-size: 0.8em; color: var(--ink-soft); margin-top: 10px; }
+
+    section { margin-bottom: 32px; }
+    h3.section-title { font-size: 1.2em; margin: 0 0 12px; }
+
+    /* ---- Light-dose request ---- */
+    .dose-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 22px;
+      box-shadow: var(--shadow);
+    }
+    .dose-note {
+      background: var(--surface-alt);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 0.9em;
+      color: var(--ink-soft);
+      margin-top: 14px;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: var(--accent-ink);
+      font-weight: 700;
+      font-size: 1.05em;
+    }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ---- Apollo chat ---- */
+    .apollo {
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .apollo .head {
+      padding: 16px 20px;
+      background: var(--surface-alt);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .apollo .head .avatar {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: linear-gradient(135deg, #6fae8f, #4f8f6f);
+      display: grid; place-items: center; color: #fff; font-size: 1.2em;
+    }
+    .apollo .log { padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+    .msg { max-width: 85%; padding: 12px 16px; border-radius: 16px; }
+    .msg.user { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+    .msg.bot  { align-self: flex-start; background: var(--surface-alt); border-bottom-left-radius: 4px; }
+    .msg .cite { display: block; margin-top: 8px; font-size: 0.8em; color: var(--ink-soft); }
+    .msg .cite a { color: inherit; }
+    .apollo .composer {
+      display: flex;
+      gap: 8px;
+      padding: 14px 20px;
+      border-top: 1px solid #ece2d6;
+      align-items: center;
+    }
+    .apollo .composer input[type="text"] {
+      flex: 1;
+      min-height: 48px;
+      font-size: 1em;
+      font-family: inherit;
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 2px solid #e0d4c6;
+      background: var(--bg);
+      color: var(--ink);
+    }
+    .icon-btn { background: var(--surface-alt); font-size: 1.2em; }
+
+    .disclaimer {
+      margin-top: 30px;
+      padding: 16px 20px;
+      background: var(--surface-alt);
+      border-radius: 12px;
+      font-size: 0.88em;
+      color: var(--ink-soft);
+    }
+
+    .visually-hidden {
+      position: absolute; width: 1px; height: 1px;
+      padding: 0; margin: -1px; overflow: hidden;
+      clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
+  </style>
+</head>
+<body data-size="normal">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  <header class="app-bar">
+    <div class="brand">
+      <span class="mark" aria-hidden="true">S</span>
+      <span>
+        Sushruta
+        <small>Smart bandage companion</small>
+      </span>
+    </div>
+
+    <span class="spacer"></span>
+
+    <div class="controls">
+      <div class="size-group" role="group" aria-label="Text size">
+        <button type="button" aria-pressed="true"  onclick="setSize('normal', this)">A</button>
+        <button type="button" aria-pressed="false" onclick="setSize('large', this)" style="font-size:1.1em">A</button>
+        <button type="button" aria-pressed="false" onclick="setSize('xlarge', this)" style="font-size:1.3em">A</button>
+      </div>
+
+      <div class="lang-toggle" role="group" aria-label="Language">
+        <button type="button" aria-pressed="true"  onclick="setLang('en', this)">EN</button>
+        <button type="button" aria-pressed="false" onclick="setLang('hi', this)">हिं</button>
+      </div>
+
+      <button type="button" class="emergency" onclick="alert('Reference mock: would call the configured emergency number (default 112).')">
+        <span aria-hidden="true">☎</span> Emergency
+      </button>
+    </div>
+  </header>
+
+  <main id="main-content">
+    <h1 class="page-title">Your wound today</h1>
+    <p class="page-sub">Left forearm &middot; Wound #A-204</p>
+
+    <!-- Primary status: colour + icon + plain words -->
+    <div class="status-card status-watch" role="status" aria-live="polite">
+      <span class="icon" aria-hidden="true">👀</span>
+      <div>
+        <h2>Keep watching</h2>
+        <p>Things look mostly fine, but the pH has risen a little over the last day. Check again this evening. If you see spreading redness, pus, or feel feverish, see a doctor today.</p>
+      </div>
+    </div>
+
+    <div class="meta-row">
+      <span class="pill">Last updated: <strong>2 min ago</strong></span>
+      <span class="pill">Sensors: <span class="sensor-ok">All OK</span></span>
+      <span class="pill sim-tag" title="This mock shows made-up demo data">SIMULATED DATA</span>
+    </div>
+
+    <!-- Readings with values, units, trend, last-updated -->
+    <section aria-labelledby="readings-title">
+      <h3 class="section-title" id="readings-title">Latest readings</h3>
+      <div class="grid">
+        <div class="reading">
+          <div class="label"><span aria-hidden="true">🧪</span> Wound pH</div>
+          <div class="value">7.9 <span class="unit">pH</span></div>
+          <div class="trend" aria-label="Trend: rising slightly">▲ rising slightly</div>
+          <div class="updated">Updated 2 min ago</div>
+        </div>
+        <div class="reading">
+          <div class="label"><span aria-hidden="true">🌡️</span> Skin temperature</div>
+          <div class="value">33.4 <span class="unit">°C</span></div>
+          <div class="trend" aria-label="Trend: steady">▬ steady</div>
+          <div class="updated">Updated 2 min ago</div>
+        </div>
+        <div class="reading">
+          <div class="label"><span aria-hidden="true">💧</span> Moisture</div>
+          <div class="value">58 <span class="unit">%</span></div>
+          <div class="trend" aria-label="Trend: steady">▬ steady</div>
+          <div class="updated">Updated 2 min ago</div>
+        </div>
+        <div class="reading">
+          <div class="label"><span aria-hidden="true">🔋</span> Bandage battery</div>
+          <div class="value">72 <span class="unit">%</span></div>
+          <div class="trend">Good for ~2 days</div>
+          <div class="updated">Updated 2 min ago</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Light-dose request: UI can only REQUEST; backend enforces caps -->
+    <section aria-labelledby="dose-title">
+      <h3 class="section-title" id="dose-title">405 nm violet light therapy</h3>
+      <div class="dose-card">
+        <p style="margin-top:0">One guided session can be requested. The bandage enforces safe limits automatically.</p>
+        <button type="button" class="btn-primary" onclick="alert('Reference mock: would REQUEST a dose. The backend enforces dose, session length and minimum-gap caps from safety_limits.yaml and may decline.')">
+          Request a light session
+        </button>
+        <div class="dose-note">
+          <strong>Next session available in 3 h 10 m.</strong>
+          Daily and per-session limits are enforced by the device for your safety and cannot be overridden from the app.
+        </div>
+      </div>
+    </section>
+
+    <!-- Apollo assistant -->
+    <section aria-labelledby="apollo-title">
+      <h3 class="section-title" id="apollo-title">Ask Apollo</h3>
+      <div class="apollo">
+        <div class="head">
+          <span class="avatar" aria-hidden="true">A</span>
+          <div>
+            <strong>Apollo</strong>
+            <div style="font-size:0.85em;color:var(--ink-soft)">Wound-care assistant &middot; explains, never diagnoses</div>
+          </div>
+        </div>
+        <div class="log" role="log" aria-label="Conversation with Apollo">
+          <div class="msg user">Why did my pH go up?</div>
+          <div class="msg bot">
+            A rising wound pH can mean the healing environment is shifting and sometimes signals early infection. Yours moved from 7.5 to 7.9 over a day, so it is worth watching rather than cause for alarm by itself. Keep the dressing clean and check again this evening. If redness spreads, you see pus, or you feel feverish, please see a doctor today.
+            <span class="cite">Source: knowledge/wound_ph.md (placeholder reference)</span>
+          </div>
+          <div class="msg bot">
+            I explain your readings and guide you — I do not diagnose. If you are unsure, please consult a doctor.
+          </div>
+        </div>
+        <form class="composer" onsubmit="event.preventDefault(); alert('Reference mock: Apollo answers only from the curated knowledge base plus current wound state.');">
+          <label class="visually-hidden" for="apollo-input">Type your question to Apollo</label>
+          <button type="button" class="icon-btn" aria-label="Speak your question (voice input)">🎙️</button>
+          <input id="apollo-input" type="text" placeholder="Type or speak your question…" />
+          <button type="button" class="icon-btn" aria-label="Read the last answer aloud">🔊</button>
+          <button type="submit" class="btn-primary">Send</button>
+        </form>
+      </div>
+    </section>
+
+    <p class="disclaimer">
+      <strong>Proof of concept — not a medical device.</strong>
+      Sushruta is decision-support software for a hackathon demo. All data shown here is simulated.
+      It does not diagnose. Always seek professional medical care for your wound, and call your local
+      emergency number for urgent symptoms.
+    </p>
+  </main>
+
+  <script>
+    // Reference mock interactions only — no backend, no real data.
+    function setSize(size, btn) {
+      document.documentElement.setAttribute('data-size', size);
+      document.querySelectorAll('.size-group button').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b === btn));
+      });
+      try { localStorage.setItem('sushruta.textSize', size); } catch (e) {}
+    }
+
+    function setLang(lang, btn) {
+      document.querySelectorAll('.lang-toggle button').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b === btn));
+      });
+      // Real app: load i18n strings for English / Hindi. Mock only toggles state.
+    }
+
+    // Restore remembered text size (accessibility: preference persists).
+    try {
+      var saved = localStorage.getItem('sushruta.textSize');
+      if (saved) {
+        var map = { normal: 0, large: 1, xlarge: 2 };
+        var btns = document.querySelectorAll('.size-group button');
+        if (map[saved] != null && btns[map[saved]]) setSize(saved, btns[map[saved]]);
+      }
+    } catch (e) {}
+  </script>
+</body>
+</html>
