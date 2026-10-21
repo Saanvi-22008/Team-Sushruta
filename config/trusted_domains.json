@@ -1,0 +1,11 @@
+{
+  "notice": "Apollo only answers from pages on these sites. Subdomains (for example an NHS trust page under nhs.uk) are included.",
+  "domains": [
+    "nhs.uk",
+    "who.int",
+    "cdc.gov",
+    "medlineplus.gov",
+    "nice.org.uk",
+    "mayoclinic.org"
+  ]
+}

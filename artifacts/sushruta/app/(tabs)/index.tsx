@@ -16,7 +16,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,29 +29,8 @@ import {
   type ScenarioRequestScenario,
 } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
-import i18n from '@/i18n';
+import { TEXT_SCALE, usePreferences, type ContactProfile } from '@/context/Preferences';
 
-type Language = 'en' | 'hi';
-type TextSize = 'normal' | 'large' | 'extraLarge';
-type ContactProfile = {
-  clinicianName: string;
-  clinicianPhone: string;
-  emergencyPhone: string;
-};
-
-const PREF_LANGUAGE = 'sushruta.language';
-const PREF_TEXT_SIZE = 'sushruta.textSize';
-const PREF_CONTACTS = 'sushruta.contacts';
-const TEXT_SCALE: Record<TextSize, number> = {
-  normal: 1,
-  large: 1.15,
-  extraLarge: 1.3,
-};
-const DEFAULT_CONTACTS: ContactProfile = {
-  clinicianName: '',
-  clinicianPhone: '',
-  emergencyPhone: '112',
-};
 const SCENARIOS: ScenarioRequestScenario[] = [
   'healing',
   'early_infection',
@@ -90,23 +68,28 @@ export default function HomeScreen() {
   const bottomInset = Platform.OS === 'web' ? 34 : insets.bottom;
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const [language, setLanguage] = useState<Language | null>(null);
-  const [textSize, setTextSize] = useState<TextSize>('normal');
-  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+  const {
+    language: storedLanguage,
+    textSize,
+    contacts,
+    pickLanguage,
+    chooseTextSize: saveTextSize,
+    saveContacts: persistContacts,
+  } = usePreferences();
+  const language = storedLanguage ?? 'en';
   const [showTextSize, setShowTextSize] = useState(false);
   const [showScenarios, setShowScenarios] = useState(false);
   const [showContacts, setShowContacts] = useState(false);
   const [speaking, setSpeaking] = useState(false);
-  const [contactDraft, setContactDraft] = useState<ContactProfile>(DEFAULT_CONTACTS);
-  const [contacts, setContacts] = useState<ContactProfile>(DEFAULT_CONTACTS);
+  const [contactDraft, setContactDraft] = useState<ContactProfile>(contacts);
   const [scenarioError, setScenarioError] = useState(false);
 
   const statusQuery = useGetStatus({
     query: {
       queryKey: getGetStatusQueryKey(),
-      enabled: preferencesLoaded && language !== null,
-      refetchInterval: 30_000,
-      retry: 1,
+      refetchInterval: (query) => (query.state.status === 'error' ? 5_000 : 30_000),
+      retry: 3,
+      retryDelay: (attempt) => Math.min(1_000 * 2 ** attempt, 6_000),
     },
   });
   const scenarioMutation = useSetSimulatorScenario({
@@ -119,42 +102,6 @@ export default function HomeScreen() {
       onError: () => setScenarioError(true),
     },
   });
-
-  useEffect(() => {
-    let active = true;
-    const loadPreferences = async () => {
-      try {
-        const [savedLanguage, savedTextSize, savedContacts] = await Promise.all([
-          AsyncStorage.getItem(PREF_LANGUAGE),
-          AsyncStorage.getItem(PREF_TEXT_SIZE),
-          AsyncStorage.getItem(PREF_CONTACTS),
-        ]);
-        if (!active) return;
-        if (savedLanguage === 'en' || savedLanguage === 'hi') {
-          await i18n.changeLanguage(savedLanguage);
-          setLanguage(savedLanguage);
-        }
-        if (savedTextSize === 'normal' || savedTextSize === 'large' || savedTextSize === 'extraLarge') {
-          setTextSize(savedTextSize);
-        }
-        if (savedContacts) {
-          try {
-            const parsed = JSON.parse(savedContacts) as Partial<ContactProfile>;
-            setContacts({ ...DEFAULT_CONTACTS, ...parsed });
-            setContactDraft({ ...DEFAULT_CONTACTS, ...parsed });
-          } catch {
-            setContacts(DEFAULT_CONTACTS);
-          }
-        }
-      } finally {
-        if (active) setPreferencesLoaded(true);
-      }
-    };
-    void loadPreferences();
-    return () => {
-      active = false;
-    };
-  }, []);
 
   const scale = TEXT_SCALE[textSize];
   const regularFont = language === 'hi' ? 'NotoSansDevanagari_400Regular' : 'AtkinsonHyperlegible_400Regular';
@@ -187,17 +134,10 @@ export default function HomeScreen() {
     };
   }, [colors, currentStatus]);
 
-  const pickLanguage = useCallback(async (nextLanguage: Language) => {
-    await AsyncStorage.setItem(PREF_LANGUAGE, nextLanguage);
-    await i18n.changeLanguage(nextLanguage);
-    setLanguage(nextLanguage);
-  }, []);
-
-  const chooseTextSize = useCallback(async (nextSize: TextSize) => {
-    setTextSize(nextSize);
-    await AsyncStorage.setItem(PREF_TEXT_SIZE, nextSize);
+  const chooseTextSize = useCallback(async (nextSize: 'normal' | 'large' | 'extraLarge') => {
+    await saveTextSize(nextSize);
     setShowTextSize(false);
-  }, []);
+  }, [saveTextSize]);
 
   const speakStatus = useCallback(async () => {
     if (speaking) {
@@ -240,10 +180,9 @@ export default function HomeScreen() {
       clinicianPhone,
       emergencyPhone,
     };
-    await AsyncStorage.setItem(PREF_CONTACTS, JSON.stringify(next));
-    setContacts(next);
+    await persistContacts(next);
     setShowContacts(false);
-  }, [contactDraft, t]);
+  }, [contactDraft, persistContacts, t]);
 
   const callNumber = useCallback(async (phone: string) => {
     const value = phoneDigits(phone);
@@ -286,47 +225,6 @@ export default function HomeScreen() {
     color: colors.foreground,
   } as const;
 
-  if (!preferencesLoaded) {
-    return (
-      <View style={[styles.centered, { backgroundColor: colors.background, paddingTop: topInset }]}>
-        <ActivityIndicator color={colors.primary} size="large" />
-        <Text style={[bodyStyle, styles.loadingText]}>{t('loading')}</Text>
-      </View>
-    );
-  }
-
-  if (!language) {
-    return (
-      <View style={[styles.languageScreen, { backgroundColor: colors.background, paddingTop: topInset + 20, paddingBottom: bottomInset + 24 }]}>
-        <Image source={require('../assets/images/sushruta-mark.png')} style={styles.languageMark} resizeMode="contain" />
-        <Text style={[styles.languageTitle, { color: colors.primary, fontFamily: 'AtkinsonHyperlegible_700Bold' }]}>{t('brand')}</Text>
-        <Text style={[styles.languageIntro, { fontFamily: 'AtkinsonHyperlegible_400Regular', color: colors.moss }]}>{t('chooseLanguage')}</Text>
-        <Text style={[styles.languageHint, { fontFamily: 'AtkinsonHyperlegible_400Regular', color: colors.moss }]}>{t('chooseLanguageHint')}</Text>
-        <View style={styles.languageChoices}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="हिन्दी"
-            testID="choose-hindi"
-            onPress={() => void pickLanguage('hi')}
-            style={({ pressed }) => [styles.languageChoice, { backgroundColor: colors.primary }, pressed && styles.pressed]}
-          >
-            <Text style={[styles.choiceHindi, { color: colors.primaryForeground, fontFamily: 'NotoSansDevanagari_700Bold' }]}>हिन्दी</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="English"
-            testID="choose-english"
-            onPress={() => void pickLanguage('en')}
-            style={({ pressed }) => [styles.languageChoice, { backgroundColor: colors.card, borderColor: colors.primary, borderWidth: 2 }, pressed && styles.pressed]}
-          >
-            <Text style={[styles.choiceEnglish, { color: colors.primary, fontFamily: 'AtkinsonHyperlegible_700Bold' }]}>English</Text>
-          </Pressable>
-        </View>
-        <Text style={[styles.disclaimer, { fontFamily: 'AtkinsonHyperlegible_400Regular', color: colors.moss }]}>{t('disclaimer')}</Text>
-      </View>
-    );
-  }
-
   const statusIcon = currentStatus === 'see_doctor_today'
     ? 'stethoscope'
     : currentStatus === 'keep_watching'
@@ -344,16 +242,16 @@ export default function HomeScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: topInset + 10, paddingBottom: Math.max(bottomInset, 20) + 22 },
+          { paddingTop: topInset + 10, paddingBottom: 28 },
         ]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
           <View style={styles.brandRow}>
-            <Image source={require('../assets/images/sushruta-mark.png')} style={styles.headerMark} resizeMode="contain" />
+            <Image source={require('../../assets/images/sushruta-mark.png')} style={styles.headerMark} resizeMode="contain" />
             <View style={styles.brandCopy}>
               <Text style={[styles.greeting, { fontFamily: regularFont, color: colors.moss, fontSize: 15 * scale, lineHeight: (language === 'hi' ? 25 : 22) * scale }]}>{t('greeting')}</Text>
-              <Text style={[styles.brandName, { fontFamily: boldFont, color: colors.primary, fontSize: 22 * scale, lineHeight: (language === 'hi' ? 34 : 29) * scale }]}>{t('brand')}</Text>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.brandName, { fontFamily: boldFont, color: colors.primary, fontSize: 26 * scale, lineHeight: (language === 'hi' ? 38 : 32) * scale }]}>{t('brand')}</Text>
             </View>
           </View>
           <View style={styles.headerActions}>
@@ -822,13 +720,13 @@ const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28 },
   loadingText: { marginTop: 18, textAlign: 'center' },
   scrollContent: { paddingHorizontal: 20, gap: 16 },
-  header: { minHeight: 70, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
+  header: { gap: 12 },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   headerMark: { width: 42, height: 54 },
-  brandCopy: { flexShrink: 1 },
+  brandCopy: { flex: 1 },
   greeting: { lineHeight: 22 },
   brandName: { lineHeight: 28 },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   languageToggle: { minHeight: 48, borderRadius: 28, borderWidth: 1, padding: 3, flexDirection: 'row', alignItems: 'center' },
   languageToggleButton: { minWidth: 50, minHeight: 42, paddingHorizontal: 9, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   languageToggleText: { fontSize: 15, lineHeight: 22 },

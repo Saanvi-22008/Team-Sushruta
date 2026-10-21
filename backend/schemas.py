@@ -87,3 +87,58 @@ class ScenarioRequest(BaseModel):
         "inflammation_spike",
         "sensor_dropout",
     ]
+
+
+class ApolloRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    message: str = Field(min_length=1, max_length=500)
+    language: Literal["en", "hi"] = "en"
+
+
+class ApolloCitation(BaseModel):
+    n: int
+    title: str
+    url: str | None
+    domain: str
+    retrieved_at: str | None
+    origin: Literal["tinyfish_live", "offline"]
+
+
+class ApolloCall(BaseModel):
+    kind: str
+    status: str
+    detail: str
+    result_count: int
+    elapsed_ms: int
+    query: str
+
+
+class ApolloGuidance(BaseModel):
+    mode: Literal["live", "cached", "offline"]
+    topic: str
+    query_sent: str | None
+    source_count: int
+    domain_count: int
+    llm_used: bool
+
+
+class ApolloReply(BaseModel):
+    answer: str
+    citations: list[ApolloCitation]
+    needs_doctor: bool
+    escalation: str | None
+    red_flags: list[str]
+    guidance: ApolloGuidance
+    calls: list[ApolloCall]
+
+
+class TinyFishActivity(BaseModel):
+    ts: datetime
+    kind: str
+    topic: str
+    query: str
+    status: str
+    detail: str
+    result_count: int
+    elapsed_ms: int

@@ -1,0 +1,54 @@
+{
+  "notice": "Offline fallback notes written by the Sushruta team from general wound-care guidance. They have NOT been reviewed by a clinician. Used only when live guidance from TinyFish is unavailable.",
+  "label": {
+    "en": "Sushruta offline notes",
+    "hi": "सुश्रुत के ऑफ़लाइन नोट्स"
+  },
+  "topics": {
+    "infection_signs": {
+      "title": {"en": "Signs a wound may be infected", "hi": "घाव में संक्रमण के संकेत"},
+      "en": "Signs that a wound may be infected include redness that spreads, warmth, swelling, pain that gets worse, pus or cloudy fluid, a bad smell, or a fever. If you notice any of these, contact a clinician the same day. This is general information, not a diagnosis.",
+      "hi": "घाव में संक्रमण के संकेत ये हो सकते हैं: फैलती हुई लालिमा, गर्माहट, सूजन, बढ़ता दर्द, मवाद या गंदा पानी, बदबू, या बुखार। इनमें से कुछ भी दिखे तो उसी दिन डॉक्टर से बात करें। यह सामान्य जानकारी है, जाँच का निष्कर्ष नहीं।"
+    },
+    "ph": {
+      "title": {"en": "Wound pH", "hi": "घाव का pH"},
+      "en": "In studies of long-lasting wounds, a wound surface that becomes more alkaline (a higher pH) has been linked with a higher chance of infection. This is why the patch tracks pH. One reading cannot tell you whether a wound is infected. It is a reason to look more closely and talk to a clinician. The ranges in this app are placeholders.",
+      "hi": "लंबे समय तक न भरने वाले घावों पर हुए अध्ययनों में देखा गया है कि घाव की सतह ज़्यादा क्षारीय (ऊँचा pH) होने पर संक्रमण का जोखिम बढ़ सकता है। इसीलिए यह पैच pH मापता है। सिर्फ़ एक रीडिंग से यह तय नहीं होता कि संक्रमण है। यह ध्यान से देखने और डॉक्टर से बात करने की वजह है। इस ऐप की सीमाएँ अभी शुरुआती मान हैं।"
+    },
+    "moisture_dressing": {
+      "title": {"en": "Dressings and moisture", "hi": "पट्टी और नमी"},
+      "en": "Most wounds heal best when they are kept clean and covered with a dressing that is not soaked through. Change the dressing when it gets wet, dirty or loose, or as your clinician told you. Wash your hands before and after. If a lot of fluid keeps soaking through, tell your clinician.",
+      "hi": "ज़्यादातर घाव तब सबसे अच्छे भरते हैं जब उन्हें साफ़ रखा जाए और ऐसी पट्टी से ढका जाए जो पूरी तरह भीगी न हो। पट्टी गीली, गंदी या ढीली हो जाए तो बदलें, या जैसा डॉक्टर ने बताया हो वैसा करें। पहले और बाद में हाथ धोएँ। अगर बहुत ज़्यादा पानी बार-बार निकल रहा हो तो डॉक्टर को बताएँ।"
+    },
+    "temperature": {
+      "title": {"en": "Warmth around a wound", "hi": "घाव के आसपास गर्माहट"},
+      "en": "A little warmth around a fresh wound can be part of normal healing. Warmth that keeps increasing, especially with redness, swelling or pain, can be a sign of infection and is worth checking with a clinician.",
+      "hi": "ताज़े घाव के आसपास थोड़ी गर्माहट सामान्य उपचार का हिस्सा हो सकती है। अगर गर्माहट बढ़ती जाए, ख़ासकर लालिमा, सूजन या दर्द के साथ, तो यह संक्रमण का संकेत हो सकता है। डॉक्टर से जँचवाना अच्छा रहेगा।"
+    },
+    "pain": {
+      "title": {"en": "Pain and wounds", "hi": "घाव में दर्द"},
+      "en": "Pain should slowly get better as a wound heals. Pain that is getting worse, throbbing or severe is a reason to contact a clinician.",
+      "hi": "घाव भरने के साथ दर्द धीरे-धीरे कम होना चाहिए। अगर दर्द बढ़ रहा हो, धड़क रहा हो या बहुत तेज़ हो, तो डॉक्टर से बात करें।"
+    },
+    "healing": {
+      "title": {"en": "How wounds heal", "hi": "घाव कैसे भरते हैं"},
+      "en": "How fast a wound heals depends on its size and depth, your age, diabetes, blood flow and nutrition. Small clean wounds often close within days to a few weeks. A wound that is not improving after several days to a couple of weeks should be checked by a clinician.",
+      "hi": "घाव कितनी जल्दी भरता है यह उसके आकार और गहराई, आपकी उम्र, मधुमेह, खून के बहाव और खान-पान पर निर्भर करता है। छोटे साफ़ घाव अक्सर कुछ दिनों से कुछ हफ़्तों में भर जाते हैं। अगर कई दिनों से लेकर दो हफ़्तों तक घाव में सुधार न हो तो डॉक्टर को दिखाएँ।"
+    },
+    "bleeding": {
+      "title": {"en": "Bleeding", "hi": "खून बहना"},
+      "en": "For minor bleeding, press firmly on the wound with a clean cloth for several minutes. Get urgent help if the bleeding is heavy, spurting, or does not stop after about 10 minutes of firm pressure.",
+      "hi": "हल्का खून बहने पर साफ़ कपड़े से घाव को कुछ मिनट तक कसकर दबाएँ। अगर खून बहुत ज़्यादा हो, धार से निकल रहा हो, या लगभग 10 मिनट कसकर दबाने के बाद भी न रुके, तो तुरंत मदद लें।"
+    },
+    "diabetes": {
+      "title": {"en": "Diabetes and wounds", "hi": "मधुमेह और घाव"},
+      "en": "People with diabetes heal more slowly and have a higher risk of infection, so even small wounds, especially on the feet, should be checked early. Contact your clinician promptly about any wound that is red, warm, draining or not improving.",
+      "hi": "मधुमेह वाले लोगों में घाव धीरे भरते हैं और संक्रमण का जोखिम ज़्यादा होता है, इसलिए छोटे घाव भी, ख़ासकर पैरों में, जल्दी दिखवाएँ। जो घाव लाल, गर्म, रिसता हुआ या बिना सुधार वाला हो, उसके बारे में जल्द डॉक्टर से बात करें।"
+    },
+    "general": {
+      "title": {"en": "Caring for a wound", "hi": "घाव की देखभाल"},
+      "en": "Keep the wound clean, covered and dry, and wash your hands before touching it. Watch for spreading redness, swelling, pus, a bad smell, fever or pain that gets worse. Contact a clinician if any of these appear, if the wound is deep or gaping, if it came from a bite or puncture, or if it is not improving.",
+      "hi": "घाव को साफ़, ढका और सूखा रखें, और छूने से पहले हाथ धोएँ। फैलती लालिमा, सूजन, मवाद, बदबू, बुखार या बढ़ते दर्द पर नज़र रखें। इनमें से कुछ भी दिखे, घाव गहरा या खुला हो, काटने या चुभने से हुआ हो, या सुधार न हो रहा हो, तो डॉक्टर से बात करें।"
+    }
+  }
+}

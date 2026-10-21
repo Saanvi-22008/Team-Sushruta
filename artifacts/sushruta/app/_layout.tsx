@@ -4,6 +4,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { PreferencesGate, PreferencesProvider } from '@/context/Preferences';
 import {
   AtkinsonHyperlegible_400Regular,
   AtkinsonHyperlegible_700Bold,
@@ -30,7 +31,7 @@ const queryClient = new QueryClient();
 function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerBackTitle: 'Back' }}>
-      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
     </Stack>
   );
 }
@@ -57,10 +58,12 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <GestureHandlerRootView>
             <KeyboardProvider>
-              <>
+              <PreferencesProvider>
                 <StatusBar style="dark" />
-                <RootLayoutNav />
-              </>
+                <PreferencesGate>
+                  <RootLayoutNav />
+                </PreferencesGate>
+              </PreferencesProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>
         </QueryClientProvider>
