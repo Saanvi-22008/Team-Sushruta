@@ -1,0 +1,25 @@
+{
+  "notice": "PLACEHOLDER clinical values. A clinician must verify these before any clinical use.",
+  "wound_ph": {
+    "acidic_below": 5.0,
+    "normal_min": 6.5,
+    "normal_max": 7.2,
+    "infection_risk_above": 7.5,
+    "placeholder": true
+  },
+  "skin_temperature_c": {
+    "normal_min": 36.2,
+    "normal_max": 37.0,
+    "placeholder": true
+  },
+  "moisture_pct": {
+    "normal_min": 30,
+    "normal_max": 70,
+    "placeholder": true
+  },
+  "red_flags": {
+    "no_improvement_after_days": 7,
+    "placeholder": true,
+    "note": "The brief specifies N days; 7 is a placeholder only."
+  }
+}

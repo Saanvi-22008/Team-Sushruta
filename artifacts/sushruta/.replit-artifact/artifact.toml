@@ -1,0 +1,24 @@
+kind = "mobile"
+previewPath = "/"
+title = "Sushruta"
+description = "A Hindi- and English-friendly wound-care companion for patients, caregivers, and clinicians. Phase 1 provides a simulated readings dashboard and conservative safety status, with educational decision support that is not a diagnosis or medical device."
+version = "1.0.0"
+id = "artifacts/sushruta"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/" ]
+localPort = 20004
+
+[services.development]
+run = "pnpm --filter @workspace/sushruta run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/sushruta", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/sushruta", "run", "serve" ]
+
+[services.env]
+PORT = "20004"
+BASE_PATH = "/"

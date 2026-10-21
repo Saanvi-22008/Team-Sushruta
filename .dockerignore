@@ -1,0 +1,11 @@
+.git
+.env
+.pythonlibs
+.venv
+.pytest_cache
+__pycache__
+*.py[cod]
+node_modules
+artifacts/*/node_modules
+.expo
+.cache

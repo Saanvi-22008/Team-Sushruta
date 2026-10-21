@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: readings
+    description: Simulated wound sensor readings and deterministic safety status
 paths:
   /healthz:
     get:
@@ -24,6 +26,68 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /readings:
+    post:
+      operationId: createReading
+      tags: [readings]
+      summary: Record a wound-patch reading
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReadingCreate"
+      responses:
+        "201":
+          description: Reading recorded and safety status evaluated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadingStatus"
+        "409":
+          description: Duplicate device reading
+  /readings/latest:
+    get:
+      operationId: getLatestReading
+      tags: [readings]
+      summary: Get the latest simulated reading and safety status
+      responses:
+        "200":
+          description: Latest reading
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadingStatus"
+  /status:
+    get:
+      operationId: getStatus
+      tags: [readings]
+      summary: Get the current deterministic safety status
+      responses:
+        "200":
+          description: Current status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadingStatus"
+  /simulator/scenario:
+    post:
+      operationId: setSimulatorScenario
+      tags: [readings]
+      summary: Set a built-in simulated reading scenario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScenarioRequest"
+      responses:
+        "200":
+          description: New simulated reading and safety status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadingStatus"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +97,180 @@ components:
           type: string
       required:
         - status
+    ClinicalContext:
+      type: object
+      properties:
+        spreading_redness:
+          type: boolean
+          default: false
+        pus:
+          type: boolean
+          default: false
+        fever:
+          type: boolean
+          default: false
+        severe_pain:
+          type: boolean
+          default: false
+        rapid_worsening:
+          type: boolean
+          default: false
+        deep_or_gaping_wound:
+          type: boolean
+          default: false
+        bite_or_puncture:
+          type: boolean
+          default: false
+        diabetic:
+          type: boolean
+          default: false
+        immunocompromised:
+          type: boolean
+          default: false
+        no_improvement_after_days:
+          type: integer
+          minimum: 0
+          default: 0
+        sustained_abnormal_trend:
+          type: boolean
+          default: false
+    ReadingCreate:
+      type: object
+      properties:
+        device_id:
+          type: string
+          minLength: 1
+          maxLength: 80
+        wound_id:
+          type: string
+          minLength: 1
+          maxLength: 80
+        ts:
+          type: string
+          format: date-time
+        ph:
+          type: number
+          minimum: 0
+          maximum: 14
+          nullable: true
+        skin_temp_c:
+          type: number
+          minimum: 25
+          maximum: 45
+          nullable: true
+        moisture_pct:
+          type: number
+          minimum: 0
+          maximum: 100
+          nullable: true
+        battery_pct:
+          type: integer
+          minimum: 0
+          maximum: 100
+        sensor_status:
+          type: string
+          enum: [available, dropout]
+        clinical_context:
+          $ref: "#/components/schemas/ClinicalContext"
+      required:
+        - device_id
+        - wound_id
+        - ts
+        - ph
+        - skin_temp_c
+        - moisture_pct
+        - battery_pct
+        - sensor_status
+    Reading:
+      type: object
+      properties:
+        id:
+          type: integer
+        device_id:
+          type: string
+        wound_id:
+          type: string
+        ts:
+          type: string
+          format: date-time
+        ph:
+          type: number
+          nullable: true
+        skin_temp_c:
+          type: number
+          nullable: true
+        moisture_pct:
+          type: number
+          nullable: true
+        battery_pct:
+          type: integer
+        sensor_status:
+          type: string
+          enum: [available, dropout]
+        data_source:
+          type: string
+          enum: [SIMULATED]
+      required:
+        - id
+        - device_id
+        - wound_id
+        - ts
+        - ph
+        - skin_temp_c
+        - moisture_pct
+        - battery_pct
+        - sensor_status
+        - data_source
+    ReadingStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [all_good, keep_watching, see_doctor_today]
+        reason_code:
+          type: string
+          enum:
+            - readings_in_expected_ranges
+            - abnormal_reading
+            - high_wound_ph
+            - sensor_dropout
+            - red_flag
+            - no_reading_yet
+        needs_clinician:
+          type: boolean
+        data_source:
+          type: string
+          enum: [SIMULATED]
+        metric_status:
+          $ref: "#/components/schemas/MetricStatus"
+        reading:
+          oneOf:
+            - $ref: "#/components/schemas/Reading"
+            - type: "null"
+      required: [status, reason_code, needs_clinician, data_source, metric_status, reading]
+    MetricStatus:
+      type: object
+      properties:
+        ph:
+          type: string
+          enum: [low, normal, high, check]
+        temperature:
+          type: string
+          enum: [normal, warm, check]
+        moisture:
+          type: string
+          enum: [low, normal, high, check]
+      required: [ph, temperature, moisture]
+    ScenarioRequest:
+      type: object
+      properties:
+        scenario:
+          type: string
+          enum:
+            - healing
+            - early_infection
+            - heavy_exudate
+            - inflammation_spike
+            - sensor_dropout
+      required: [scenario]
 

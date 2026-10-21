@@ -1,44 +1,53 @@
-# [Project name]
+# Sushruta
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A Hindi- and English-friendly wound-care companion prototype that displays simulated wound-patch readings and deterministic safety guidance.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/api-server run dev` — apply the development migration and run the FastAPI server
+- `pnpm --filter @workspace/sushruta run dev` — run the Expo mobile app
+- `.pythonlibs/bin/pytest -q` — run backend safety tests
+- `.pythonlibs/bin/alembic upgrade head` — apply the development PostgreSQL schema
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- Required env: `DATABASE_URL` — PostgreSQL connection string supplied by Replit
 
 ## Stack
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- Mobile: Expo Go, React Native, TypeScript, Expo Router
+- API: Python 3.11, FastAPI, Pydantic, HTTPX
+- DB: PostgreSQL, SQLAlchemy, Alembic
+- API codegen: Orval, from `lib/api-spec/openapi.yaml`
+- Container demo: Docker Compose
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/sushruta/` — Expo mobile app
+- `backend/` — FastAPI routes, data models, safety logic, and simulator
+- `backend/migrations/` — Alembic migrations
+- `config/clinical_thresholds.json` — placeholder safety thresholds
+- `lib/api-spec/openapi.yaml` — API contract and generated client source
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Readings are marked `SIMULATED`; no live patch is connected.
+- Deterministic safety rules are authoritative and do not use an LLM.
+- Clinical ranges are placeholders and require clinician review.
+- The FastAPI service reuses the existing `/api` service route.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Phase 1 includes a simulated readings Home screen with Hindi/English text, adjustable text size, read-aloud, and safety status. Later phases in the project brief cover Apollo, care tools, documents, and light-session requests.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+Follow the phase order in the project brief and stop after each completed phase.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Do not present placeholder thresholds as clinically validated.
+- Docker files are for a machine with Docker installed; Replit's app runtime does not run Docker.
 
 ## Pointers
 

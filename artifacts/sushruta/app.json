@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "Sushruta",
+    "slug": "sushruta",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon_2.png",
+    "scheme": "sushruta",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#F0F6F1",
+      "image": "./assets/images/icon_2.png",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": false
+    },
+    "android": {},
+    "web": {
+      "favicon": "./assets/images/icon_2.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-localization"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
