@@ -41,6 +41,14 @@ export default function TabsLayout() {
           tabBarIcon: ({ color }) => <Feather name="message-circle" size={24} color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="history"
+        options={{
+          title: t('tabHistory'),
+          tabBarAccessibilityLabel: t('tabHistory'),
+          tabBarIcon: ({ color }) => <Feather name="activity" size={24} color={color} />,
+        }}
+      />
     </Tabs>
   );
 }

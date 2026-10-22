@@ -19,6 +19,8 @@ RUN useradd --create-home --uid 10001 appuser
 COPY --from=builder /app/.venv /app/.venv
 COPY backend ./backend
 COPY config ./config
+COPY knowledge ./knowledge
+COPY ml/__init__.py ml/features.py ml/model.json ./ml/
 COPY alembic.ini ./
 COPY docker-healthcheck.py ./
 

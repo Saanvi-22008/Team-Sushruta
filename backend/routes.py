@@ -2,19 +2,23 @@ from datetime import datetime, timezone
 import os
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from backend import trend
 from backend.database import get_session
 from backend.models import ReadingRecord
 from backend.safety import evaluate_safety
 from backend.schemas import (
+    HistoryPoint,
+    HistoryReply,
     ReadingCreate,
     ReadingStatus,
     ReadingView,
     ScenarioRequest,
+    TrendReply,
 )
 from backend.simulator import scenario_payload
 
@@ -116,6 +120,51 @@ def get_latest_reading(session: Session = Depends(get_session)) -> ReadingStatus
 @router.get("/status", response_model=ReadingStatus)
 def get_status(session: Session = Depends(get_session)) -> ReadingStatus:
     return _serialize_status(_latest(session))
+
+
+@router.get("/readings/history", response_model=HistoryReply)
+def get_history(
+    limit: int = Query(120, ge=1, le=500), session: Session = Depends(get_session)
+) -> HistoryReply:
+    """Stored readings, oldest first, so a clinician can see the whole course.
+
+    This is the patient's history. It lives in PostgreSQL (kept on a Docker
+    volume when run with Docker Compose), not in the app.
+    """
+    rows = session.scalars(
+        select(ReadingRecord).order_by(ReadingRecord.id.desc()).limit(limit)
+    ).all()
+    rows = list(reversed(rows))
+    total = session.scalar(select(func.count(ReadingRecord.id))) or 0
+    counts = dict(
+        session.execute(select(ReadingRecord.status, func.count()).group_by(ReadingRecord.status)).all()
+    )
+    return HistoryReply(
+        points=[
+            HistoryPoint(
+                ts=r.ts, ph=r.ph, skin_temp_c=r.skin_temp_c,
+                moisture_pct=r.moisture_pct, status=r.status,
+            )
+            for r in rows
+        ],
+        total=total,
+        first_ts=session.scalar(select(func.min(ReadingRecord.ts))),
+        last_ts=session.scalar(select(func.max(ReadingRecord.ts))),
+        status_counts={str(k): int(v) for k, v in counts.items()},
+    )
+
+
+@router.get("/trend", response_model=TrendReply)
+def get_trend(session: Session = Depends(get_session)) -> dict:
+    """Experimental advisory score. It never changes the safety status."""
+    rows = session.scalars(
+        select(ReadingRecord).order_by(ReadingRecord.id.desc()).limit(trend.WINDOW_NEEDED)
+    ).all()
+    window = [
+        {"ph": r.ph, "skin_temp_c": r.skin_temp_c, "moisture_pct": r.moisture_pct}
+        for r in reversed(rows)
+    ]
+    return trend.assess(window)
 
 
 @router.post("/simulator/scenario", response_model=ReadingStatus)

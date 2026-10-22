@@ -22,7 +22,7 @@ import { useTranslation } from 'react-i18next';
 import { getGetStatusQueryKey, useGetStatus } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { TEXT_SCALE, usePreferences } from '@/context/Preferences';
-import { askApollo, getTinyFishActivity, type ApolloReply } from '@/lib/apollo';
+import { askApollo, errorCode, findCare, getTinyFishActivity, type ApolloReply, type CareReply } from '@/lib/apollo';
 
 type Message = {
   id: string;
@@ -37,7 +37,7 @@ const TINYFISH_LOGO = require('../../assets/images/tinyfish-logo.png');
 const DOCKER_LOGO = require('../../assets/images/docker-logo.png');
 
 function stripMarkers(text: string): string {
-  return text.replace(/\s*\[\d+\]/g, '');
+  return text.replace(/\s*\[\d+\]/g, '').replace(/\u2022\s*/g, '');
 }
 
 function phoneDigits(value: string): string {
@@ -61,6 +61,11 @@ export default function ApolloScreen() {
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [showActivity, setShowActivity] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
+  const [showCare, setShowCare] = useState(false);
+  const [area, setArea] = useState('');
+  const [careBusy, setCareBusy] = useState(false);
+  const [care, setCare] = useState<CareReply | null>(null);
+  const [careError, setCareError] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
 
   const statusQuery = useGetStatus({ query: { queryKey: getGetStatusQueryKey() } });
@@ -115,6 +120,32 @@ export default function ApolloScreen() {
     },
     [language, speakingId],
   );
+
+  const searchCare = useCallback(async () => {
+    const text = area.trim();
+    if (text.length < 3 || careBusy) {
+      if (text.length < 3) setCareError('bad_area');
+      return;
+    }
+    setCareBusy(true);
+    setCareError(null);
+    setCare(null);
+    try {
+      setCare(await findCare(text));
+    } catch (error) {
+      setCareError(errorCode(error));
+    } finally {
+      setCareBusy(false);
+    }
+  }, [area, careBusy]);
+
+  const callPlace = useCallback(async (phone: string) => {
+    try {
+      await Linking.openURL(`tel:${phoneDigits(phone)}`);
+    } catch {
+      // Calls are not available on this device (for example in a web preview).
+    }
+  }, []);
 
   const callEmergency = useCallback(async () => {
     const number = phoneDigits(contacts.emergencyPhone || '112');
@@ -286,6 +317,15 @@ export default function ApolloScreen() {
 
       <View style={[styles.bottom, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow} keyboardShouldPersistTaps="handled">
+          <Pressable
+            accessibilityRole="button"
+            testID="open-find-care"
+            onPress={() => setShowCare(true)}
+            style={({ pressed }) => [styles.quickChip, styles.careChip, { backgroundColor: colors.primary, borderColor: colors.primary }, pressed && styles.pressed]}
+          >
+            <Feather name="map-pin" size={16} color={colors.primaryForeground} />
+            <Text style={[small, { color: colors.primaryForeground, fontFamily: boldFont }]}>{t('findCare')}</Text>
+          </Pressable>
           {CHIPS.map((key) => (
             <Pressable
               key={key}
@@ -340,6 +380,83 @@ export default function ApolloScreen() {
           <Image source={DOCKER_LOGO} accessibilityLabel="Docker" style={styles.dockerLogo} resizeMode="contain" />
           <Text style={[body, styles.aboutText, { color: colors.foreground }]}>{t('aboutDocker')}</Text>
         </View>
+      </Sheet>
+
+      <Sheet visible={showCare} title={t('findCareTitle')} onClose={() => setShowCare(false)} colors={colors} boldFont={boldFont} closeLabel={t('close')} bottomInset={insets.bottom}>
+        <View style={styles.poweredRow}>
+          <Text style={[small, { color: colors.moss }]}>{t('poweredAgent')}</Text>
+          <Image source={TINYFISH_LOGO} accessibilityLabel="TinyFish" style={styles.tinyfishSmall} resizeMode="contain" />
+        </View>
+        <Text style={[small, { color: colors.moss }]}>{t('findCareHint')}</Text>
+        <TextInput
+          accessibilityLabel={t('findCareArea')}
+          testID="care-area-input"
+          value={area}
+          onChangeText={setArea}
+          placeholder={t('findCareArea')}
+          placeholderTextColor={colors.moss}
+          maxLength={60}
+          returnKeyType="search"
+          onSubmitEditing={() => void searchCare()}
+          style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, fontFamily: regularFont, fontSize: 18 * scale }]}
+        />
+        <Pressable
+          accessibilityRole="button"
+          testID="care-search"
+          disabled={careBusy}
+          onPress={() => void searchCare()}
+          style={({ pressed }) => [styles.careButton, { backgroundColor: colors.primary, alignSelf: 'stretch', justifyContent: 'center' }, careBusy && styles.disabled, pressed && styles.pressed]}
+        >
+          <Feather name="search" size={20} color={colors.primaryForeground} />
+          <Text style={[styles.careButtonText, { fontFamily: boldFont, color: colors.primaryForeground, fontSize: 16 * scale }]}>{t('findCareGo')}</Text>
+        </Pressable>
+        {careBusy && (
+          <View style={styles.pendingBubble}>
+            <ActivityIndicator color={colors.primary} />
+            <Text style={[body, { color: colors.moss, flexShrink: 1 }]}>{t('findCareWorking')}</Text>
+          </View>
+        )}
+        {careError && (
+          <Text style={[body, { color: colors.coralText }]}>
+            {careError === 'no_key' || careError === 'auth'
+              ? t('careErrNoKey')
+              : careError === 'out_of_credits'
+                ? t('careErrCredits')
+                : careError === 'timeout'
+                  ? t('careErrTimeout')
+                  : careError === 'bad_area'
+                    ? t('careErrArea')
+                    : careError === 'no_results'
+                      ? t('findCareNone')
+                      : t('careErrOther')}
+          </Text>
+        )}
+        {care && (
+          <View style={{ gap: 12 }}>
+            {care.places.map((place, index) => (
+              <View key={`${place.name}-${index}`} style={[styles.activityItem, { borderColor: colors.border }]}>
+                <Text style={[body, { color: colors.primary, fontFamily: boldFont }]}>{place.name}</Text>
+                {place.address ? <Text style={[small, { color: colors.foreground }]}>{place.address}</Text> : null}
+                {place.open_status ? <Text style={[small, { color: colors.moss }]}>{place.open_status}</Text> : null}
+                {place.phone ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${t('call')} ${place.name}`}
+                    onPress={() => void callPlace(place.phone)}
+                    style={({ pressed }) => [styles.listenButton, { borderColor: colors.primary, marginTop: 6 }, pressed && styles.pressed]}
+                  >
+                    <Feather name="phone" size={18} color={colors.primary} />
+                    <Text style={[styles.listenText, { fontFamily: boldFont, color: colors.primary, fontSize: 16 * scale }]}>{t('call')} {place.phone}</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ))}
+            <Text style={[small, { color: colors.moss }]}>
+              {care.mode === 'cached' ? `${t('findCareCached')}. ` : ''}
+              {t('findCareSource')}
+            </Text>
+          </View>
+        )}
       </Sheet>
 
       <Sheet visible={showActivity} title={t('activityTitle')} onClose={() => setShowActivity(false)} colors={colors} boldFont={boldFont} closeLabel={t('close')} bottomInset={insets.bottom}>
@@ -416,6 +533,9 @@ const styles = StyleSheet.create({
   tinyfishLogo: { width: 98, height: 22 },
   dockerLogo: { width: 26, height: 22 },
   tinyfishSmall: { width: 66, height: 15 },
+  careChip: { flexDirection: 'row', gap: 8 },
+  careButton: { minHeight: 48, borderRadius: 28, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, alignSelf: 'flex-start' },
+  careButtonText: {},
   contextStrip: { minHeight: 48, borderRadius: 24, paddingHorizontal: 14, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 10 },
   contextText: { flex: 1 },
   messages: { flex: 1 },

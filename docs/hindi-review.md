@@ -54,3 +54,36 @@ Written by an AI model, not yet read by a native Hindi speaker. The offline note
 | App: chipPus | There is pus or a smell | मवाद या बदबू है |
 | App: currentStatus | Your wound now | आपका घाव अभी |
 | App: retrievedAt | Retrieved {{time}} | {{time}} बजे प्राप्त |
+| App: tabHistory | History | इतिहास |
+| App: historyTitle | Wound history | घाव का इतिहास |
+| App: historySubtitle | Every reading is stored in the database, so a clinician can see the whole course. | हर रीडिंग डेटाबेस में सहेजी जाती है, ताकि डॉक्टर पूरा इतिहास देख सकें। |
+| App: historyStored | Stored in PostgreSQL. When run with Docker Compose, a Docker volume keeps it between restarts. | PostgreSQL में सहेजा गया। Docker Compose के साथ चलाने पर Docker वॉल्यूम इसे रीस्टार्ट के बाद भी बनाए रखता है। |
+| App: historyCount | {{count}} readings stored | {{count}} रीडिंग सहेजी गईं |
+| App: historySince | Since {{date}} | {{date}} से |
+| App: historyEmpty | No readings stored yet. | अभी कोई रीडिंग सहेजी नहीं गई। |
+| App: historyError | History is not available right now. | इतिहास अभी उपलब्ध नहीं है। |
+| App: historyChartPh | pH over time | समय के साथ pH |
+| App: historyChartTemp | Skin warmth over time | समय के साथ त्वचा की गर्माहट |
+| App: historyChartMoisture | Moisture over time | समय के साथ नमी |
+| App: trendTitle | Trend watch (experimental) | ट्रेंड पर नज़र (प्रयोगात्मक) |
+| App: trendHint | A small model trained on synthetic data estimates whether pH may cross the doctor line soon. It never changes your status. | सिंथेटिक डेटा पर तैयार एक छोटा मॉडल अनुमान लगाता है कि pH जल्दी डॉक्टर वाली सीमा पार कर सकता है या नहीं। यह आपकी स्थिति कभी नहीं बदलता। |
+| App: trendLow | No rising trend spotted. | कोई बढ़ता ट्रेंड नहीं दिखा। |
+| App: trendWatch | Worth watching: readings are moving toward the doctor line. | नज़र रखें: रीडिंग डॉक्टर वाली सीमा की ओर बढ़ रही हैं। |
+| App: trendRising | Readings are rising quickly toward the doctor line. | रीडिंग तेज़ी से डॉक्टर वाली सीमा की ओर बढ़ रही हैं। |
+| App: trendNotEnough | Needs {{need}} readings; {{have}} so far. | {{need}} रीडिंग चाहिए; अभी {{have}} हैं। |
+| App: findCare | Find care nearby | पास में इलाज ढूँढें |
+| App: findCareTitle | Care near you | आपके पास इलाज |
+| App: findCareHint | Type your area. A TinyFish browser agent will look it up on a map. Only the area you type is sent. | अपना इलाका लिखें। TinyFish ब्राउज़र एजेंट इसे मैप पर खोजेगा। केवल आपका लिखा इलाका भेजा जाता है। |
+| App: findCareArea | Area or city, e.g. Dwarka, Delhi | इलाका या शहर, जैसे द्वारका, दिल्ली |
+| App: findCareGo | Search | खोजें |
+| App: findCareWorking | The TinyFish agent is browsing the map. This can take up to a minute. | TinyFish एजेंट मैप ब्राउज़ कर रहा है। इसमें एक मिनट तक लग सकता है। |
+| App: findCareSource | Found by a TinyFish browser agent from Google Maps. Please call to confirm. | TinyFish ब्राउज़र एजेंट ने Google Maps से ढूँढा। कृपया कॉल करके पुष्टि करें। |
+| App: findCareCached | Saved result from an earlier search | पहले की खोज का सहेजा परिणाम |
+| App: findCareNone | No places were found. Try a nearby area. | कोई जगह नहीं मिली। पास का कोई और इलाका आज़माएँ। |
+| App: careErrNoKey | Browser lookup isn't set up yet (TinyFish key missing). | ब्राउज़र खोज अभी सेट नहीं है (TinyFish की कुंजी नहीं है)। |
+| App: careErrCredits | TinyFish has run out of credits. | TinyFish के क्रेडिट खत्म हो गए हैं। |
+| App: careErrTimeout | The lookup took too long. Try again. | खोज में बहुत समय लगा। फिर कोशिश करें। |
+| App: careErrOther | Couldn't look this up right now. | अभी यह खोज नहीं हो सकी। |
+| App: careErrArea | Please type an area or city (3 to 60 characters). | कृपया इलाका या शहर लिखें (3 से 60 अक्षर)। |
+| App: call | Call | कॉल करें |
+| App: poweredAgent | Browser agent by | ब्राउज़र एजेंट: |

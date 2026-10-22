@@ -30,7 +30,6 @@ export type ApolloReply = {
     query_sent: string | null;
     source_count: number;
     domain_count: number;
-    llm_used: boolean;
   };
   calls: ApolloCall[];
 };
@@ -68,4 +67,69 @@ export function getTinyFishActivity(limit = 15): Promise<TinyFishActivity[]> {
   return customFetch<TinyFishActivity[]>(`/api/tinyfish/activity?limit=${limit}`, {
     responseType: 'json',
   });
+}
+
+export type CarePlace = { name: string; address: string; phone: string; open_status: string };
+export type CareReply = {
+  places: CarePlace[];
+  mode: 'live' | 'cached';
+  area: string;
+  retrieved_at: string;
+  source: string;
+};
+
+export type HistoryPoint = {
+  ts: string;
+  ph: number | null;
+  skin_temp_c: number | null;
+  moisture_pct: number | null;
+  status: string;
+};
+export type HistoryReply = {
+  points: HistoryPoint[];
+  total: number;
+  first_ts: string | null;
+  last_ts: string | null;
+  status_counts: Record<string, number>;
+};
+export type TrendReply = {
+  available: boolean;
+  level: 'low' | 'watch' | 'rising' | null;
+  risk: number | null;
+  reason: string | null;
+  have: number | null;
+  need: number | null;
+};
+
+const CARE_TIMEOUT_MS = 130_000;
+
+/** Short error code from the API ("no_key", "timeout", ...), or "other". */
+export function errorCode(error: unknown): string {
+  const data = (error as { data?: { detail?: { code?: unknown } } } | null)?.data;
+  const code = data?.detail?.code;
+  return typeof code === 'string' ? code : 'other';
+}
+
+export async function findCare(area: string): Promise<CareReply> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), CARE_TIMEOUT_MS);
+  try {
+    return await customFetch<CareReply>('/api/apollo/find-care', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ area }),
+      responseType: 'json',
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export function getHistory(limit = 60): Promise<HistoryReply> {
+  return customFetch<HistoryReply>(`/api/readings/history?limit=${limit}`, { responseType: 'json' });
+}
+
+export function getTrend(): Promise<TrendReply> {
+  return customFetch<TrendReply>('/api/trend', { responseType: 'json' });
 }

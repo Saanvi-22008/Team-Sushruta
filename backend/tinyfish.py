@@ -137,3 +137,76 @@ async def fetch(
     results = [r for r in (data.get("results") or []) if isinstance(r, dict)]
     errors = [e for e in (data.get("errors") or []) if isinstance(e, dict)]
     return results, errors
+
+
+# ----------------------------------------------------------------- Agent ----
+# The TinyFish Agent drives a real browser to reach a goal on a website. Runs are
+# started with /run-async and then polled with GET /v1/runs/{id}.
+AGENT_RUN_URL = "https://agent.tinyfish.ai/v1/automation/run-async"
+AGENT_STATUS_URL = "https://agent.tinyfish.ai/v1/runs/{run_id}"
+
+
+def _agent_error(error: Any) -> TinyFishError | None:
+    """Map a TinyFish run error object to one of our short codes."""
+    if not isinstance(error, dict):
+        return None
+    category = str(error.get("category") or "").upper()
+    if category == "BILLING_FAILURE":
+        return TinyFishError("out_of_credits", str(error.get("message") or ""))
+    if category == "AGENT_FAILURE":
+        return TinyFishError("agent_failed", str(error.get("message") or ""))
+    return TinyFishError("server_error", str(error.get("message") or "run failed"))
+
+
+async def agent_start(
+    url: str,
+    goal: str,
+    output_schema: dict[str, Any],
+    *,
+    client: httpx.AsyncClient | None = None,
+    timeout: float = 20.0,
+) -> str:
+    """Start a browser-agent run and return its run id."""
+    body = {"url": url, "goal": goal, "output_schema": output_schema, "browser_profile": "lite"}
+    headers = _headers()
+    owns = client is None
+    http = client or httpx.AsyncClient(timeout=timeout)
+    try:
+        response = await http.post(AGENT_RUN_URL, json=body, headers=headers)
+        _check(response)
+        data: dict[str, Any] = response.json()
+    except httpx.HTTPError as error:
+        raise TinyFishError("network", type(error).__name__) from error
+    except ValueError as error:
+        raise TinyFishError("bad_response", "not JSON") from error
+    finally:
+        if owns:
+            await http.aclose()
+    run_id = data.get("run_id") or data.get("runId") or data.get("id")
+    if not isinstance(run_id, str) or not run_id:
+        raise TinyFishError("bad_response", "no run id")
+    return run_id
+
+
+async def agent_status(
+    run_id: str, *, client: httpx.AsyncClient | None = None, timeout: float = 20.0
+) -> dict[str, Any]:
+    """Current state of a run: {status, result}. Raises when the run failed."""
+    headers = _headers()
+    owns = client is None
+    http = client or httpx.AsyncClient(timeout=timeout)
+    try:
+        response = await http.get(AGENT_STATUS_URL.format(run_id=run_id), headers=headers)
+        _check(response)
+        data: dict[str, Any] = response.json()
+    except httpx.HTTPError as error:
+        raise TinyFishError("network", type(error).__name__) from error
+    except ValueError as error:
+        raise TinyFishError("bad_response", "not JSON") from error
+    finally:
+        if owns:
+            await http.aclose()
+    status = str(data.get("status") or "").upper()
+    if status in ("FAILED", "CANCELLED"):
+        raise _agent_error(data.get("error")) or TinyFishError("agent_failed", status)
+    return {"status": status, "result": data.get("result")}

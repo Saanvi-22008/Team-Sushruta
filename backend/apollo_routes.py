@@ -1,11 +1,11 @@
 import asyncio
 import os
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
-from backend import apollo, llm, store
+from backend import apollo, care_finder, store, tinyfish
 from backend.safety import classify_metrics
-from backend.schemas import ApolloReply, ApolloRequest, TinyFishActivity
+from backend.schemas import ApolloReply, ApolloRequest, CareReply, CareRequest, TinyFishActivity
 
 router = APIRouter()
 
@@ -35,6 +35,25 @@ async def apollo_chat(body: ApolloRequest) -> dict:
     return await apollo.answer(body.message.strip(), body.language, state)
 
 
+_CARE_HTTP = {
+    "no_key": 503, "auth": 503, "out_of_credits": 503, "rate_limited": 429,
+    "timeout": 504, "no_results": 404,
+}
+
+
+@router.post("/apollo/find-care", response_model=CareReply)
+async def find_care(body: CareRequest) -> dict:
+    """A TinyFish browser agent looks up clinics near the area the user typed."""
+    try:
+        return await care_finder.find_care(body.area)
+    except care_finder.AreaError as error:
+        raise HTTPException(status_code=422, detail={"code": "bad_area", "message": str(error)}) from error
+    except tinyfish.TinyFishError as error:
+        raise HTTPException(
+            status_code=_CARE_HTTP.get(error.code, 502), detail={"code": error.code}
+        ) from error
+
+
 @router.get("/tinyfish/activity", response_model=list[TinyFishActivity])
 async def tinyfish_activity(limit: int = Query(20, ge=1, le=50)) -> list[dict]:
     try:
@@ -48,8 +67,6 @@ def apollo_health() -> dict[str, object]:
     """Which secrets are configured. Never returns the secrets themselves."""
     return {
         "tinyfish_key": bool(os.getenv("TINYFISH_API_KEY")),
-        "gemini_key": llm.configured(),
-        "gemini_model": llm.model_name(),
         "sarvam_key": bool(os.getenv("SARVAM_API_KEY")),
         "trusted_domains": apollo.TRUSTED_DOMAINS,
     }

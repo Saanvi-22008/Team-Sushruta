@@ -120,7 +120,6 @@ class ApolloGuidance(BaseModel):
     query_sent: str | None
     source_count: int
     domain_count: int
-    llm_used: bool
 
 
 class ApolloReply(BaseModel):
@@ -142,3 +141,53 @@ class TinyFishActivity(BaseModel):
     detail: str
     result_count: int
     elapsed_ms: int
+
+
+class CareRequest(BaseModel):
+    area: str = Field(min_length=3, max_length=80)
+
+
+class CarePlace(BaseModel):
+    name: str
+    address: str
+    phone: str
+    open_status: str
+
+
+class CareReply(BaseModel):
+    places: list[CarePlace]
+    mode: Literal["live", "cached"]
+    area: str
+    retrieved_at: str
+    source: str = "Google Maps, read by a TinyFish browser agent"
+    run_id: str | None = None
+
+
+class HistoryPoint(BaseModel):
+    ts: datetime
+    ph: float | None
+    skin_temp_c: float | None
+    moisture_pct: float | None
+    status: str
+
+
+class HistoryReply(BaseModel):
+    points: list[HistoryPoint]
+    total: int
+    first_ts: datetime | None
+    last_ts: datetime | None
+    status_counts: dict[str, int]
+    data_source: Literal["SIMULATED"] = "SIMULATED"
+
+
+class TrendReply(BaseModel):
+    advisory_only: bool
+    experimental: bool
+    trained_on: str
+    available: bool
+    risk: float | None = None
+    level: Literal["low", "watch", "rising"] | None = None
+    window: int | None = None
+    reason: str | None = None
+    have: int | None = None
+    need: int | None = None

@@ -12,6 +12,7 @@ A Hindi- and English-friendly wound-care companion prototype that displays simul
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - Required env: `DATABASE_URL` — PostgreSQL connection string supplied by Replit
+- Optional secrets: `TINYFISH_API_KEY` (live Apollo guidance)
 
 ## Stack
 
@@ -38,7 +39,7 @@ A Hindi- and English-friendly wound-care companion prototype that displays simul
 
 ## Product
 
-Phase 1 includes a simulated readings Home screen with Hindi/English text, adjustable text size, read-aloud, and safety status. Later phases in the project brief cover Apollo, care tools, documents, and light-session requests.
+History tab shows stored readings plus an experimental, advisory Trend watch (ml/). Apollo can also run a TinyFish browser agent (Find care nearby). Apollo (chat tab) answers from TinyFish-fetched trusted sites; red-flag rules and the patch status escalate before any AI text. TinyFish and Docker logos appear in the Apollo header. Phase 1 includes a simulated readings Home screen with Hindi/English text, adjustable text size, read-aloud, and safety status. Later phases in the project brief cover Apollo, care tools, documents, and light-session requests.
 
 ## User preferences
 
