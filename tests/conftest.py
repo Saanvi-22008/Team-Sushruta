@@ -5,7 +5,7 @@ import tempfile
 
 _DB_FILE = os.path.join(tempfile.mkdtemp(prefix="sushruta-tests-"), "test.db")
 os.environ["DATABASE_URL"] = f"sqlite:///{_DB_FILE}"
-for key in ("TINYFISH_API_KEY", "GEMINI_API_KEY", "SARVAM_API_KEY"):
+for key in ("TINYFISH_API_KEY", "SARVAM_API_KEY"):
     os.environ.pop(key, None)
 
 import pytest  # noqa: E402

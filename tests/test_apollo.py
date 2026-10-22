@@ -5,7 +5,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from backend import apollo, llm, store, tinyfish
+from backend import apollo, store, tinyfish
 
 
 # ---------------------------------------------------------------- privacy ---
@@ -72,23 +72,6 @@ def test_negated_or_absent_flags_are_ignored(message):
 
 
 # ------------------------------------------------------- citation validation -
-def test_llm_answer_with_unknown_source_is_rejected():
-    assert apollo.validate_llm_answer({"answer": "Do X [3]", "citations": [3], "covered": True}, 2) is None
-    assert apollo.validate_llm_answer({"answer": "Do X [1]", "citations": [1, 4], "covered": True}, 2) is None
-    assert apollo.validate_llm_answer({"answer": "Do X [9]", "citations": [1], "covered": True}, 2) is None
-
-
-def test_llm_answer_without_citations_is_rejected():
-    assert apollo.validate_llm_answer({"answer": "Trust me.", "citations": [], "covered": True}, 2) is None
-    assert apollo.validate_llm_answer("not a dict", 2) is None
-    assert apollo.validate_llm_answer({"answer": "", "citations": [1], "covered": True}, 2) is None
-
-
-def test_valid_llm_answer_is_accepted_and_uncovered_is_honoured():
-    ok = apollo.validate_llm_answer({"answer": "Keep it clean [1][2].", "citations": [1], "covered": True}, 2)
-    assert ok and ok["citations"] == [1, 2]
-    unsure = apollo.validate_llm_answer({"answer": "", "citations": [], "covered": False}, 2)
-    assert unsure == {"covered": False, "answer": "", "citations": []}
 
 
 # ------------------------------------------------------------ allow-list ----
@@ -235,42 +218,6 @@ def test_status_escalation_cannot_be_switched_off(live):
     assert reply["escalation"] == apollo.ESCALATION["en"]
 
 
-def test_llm_with_bad_citation_is_replaced_by_extract(live, monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "g-key")
-
-    async def bad_llm(*a, **k):
-        return {"answer": "Definitely fine [7].", "citations": [7], "covered": True}
-
-    monkeypatch.setattr(llm, "generate", bad_llm)
-    reply = asyncio.run(apollo.answer("is it infected?", "en", None))
-    assert reply["guidance"]["llm_used"] is False
-    assert "[7]" not in reply["answer"]
-
-
-def test_llm_good_answer_is_used(live, monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "g-key")
-
-    async def good_llm(*a, **k):
-        return {"answer": "Pus and spreading redness can mean infection [1].", "citations": [1], "covered": True}
-
-    monkeypatch.setattr(llm, "generate", good_llm)
-    reply = asyncio.run(apollo.answer("what are infection signs?", "en", None))
-    assert reply["guidance"]["llm_used"] is True
-    assert [c["n"] for c in reply["citations"]] == [1]
-
-
-def test_llm_not_covered_says_not_sure(live, monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "g-key")
-
-    async def unsure(*a, **k):
-        return {"answer": "", "citations": [], "covered": False}
-
-    monkeypatch.setattr(llm, "generate", unsure)
-    reply = asyncio.run(apollo.answer("can I swim?", "en", None))
-    assert reply["answer"] == apollo.NOT_SURE["en"]
-    assert reply["citations"] == []
-
-
 # ------------------------------------------------------------- HTTP layer ---
 def test_chat_endpoint_logs_every_tinyfish_call(live):
     from backend.main import app
@@ -303,35 +250,79 @@ def test_health_endpoint_never_returns_secrets(monkeypatch):
     assert "super-secret-value" not in json.dumps(body)
 
 
-# ---------------------------------------------------------------- Gemini ----
-def test_gemini_request_shape_and_parsing(monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "g-key")
-    captured = {}
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        captured["key"] = request.headers.get("x-goog-api-key")
-        captured["body"] = json.loads(request.content)
-        payload = {"answer": "ok [1]", "citations": [1], "covered": True}
-        return httpx.Response(200, json={"candidates": [{"content": {"parts": [{"text": json.dumps(payload)}]}}]})
-
-    sources = [{"n": 1, "title": "T", "domain": "nhs.uk", "text": "body", "snippet": "s"}]
-
-    async def run():
-        async with _client(handler) as client:
-            return await llm.generate("question", "en", sources, {"status": "all_good"}, client=client)
-
-    result = asyncio.run(run())
-    assert result["citations"] == [1]
-    assert captured["key"] == "g-key"
-    prompt = captured["body"]["contents"][0]["parts"][0]["text"]
-    assert "[1] T (nhs.uk)" in prompt and "question" in prompt
+# ------------------------------------------------ answer built from pages ---
+PAGE = """
+# Wound care
+Skip to main content. Sign up to our newsletter for updates.
+Keep the wound clean and covered, and change the dressing when it becomes wet or dirty.
+Signs of infection include spreading redness, swelling, pus, a bad smell, and a fever.
+Contact a doctor if the redness spreads or you develop a fever.
+[Read more about scars](https://example.org/scars)
+Scars fade slowly over many months and may look pink at first.
+"""
 
 
-def test_gemini_failure_returns_none(monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "g-key")
+def test_sentences_drop_menus_and_links():
+    sentences = apollo.split_sentences(PAGE)
+    joined = " ".join(sentences)
+    assert "Skip to main" not in joined and "newsletter" not in joined and "http" not in joined
+    assert any("pus" in s for s in sentences)
 
-    async def run():
-        async with _client(lambda r: httpx.Response(500, json={})) as client:
-            return await llm.generate("q", "en", [], None, client=client)
 
-    assert asyncio.run(run()) is None
+def test_answer_picks_sentences_that_match_the_question():
+    topic = apollo.pick_topic("is it infected?")
+    source = {"n": 1, "title": "T", "domain": "nhs.uk", "text": PAGE, "snippet": ""}
+    text, used = apollo.extractive_answer([source], topic, "en", offline=False, message="is it infected, I see pus")
+    assert used == [1]
+    assert "pus" in text and "[1]" in text
+    assert "Scars fade" not in text
+
+
+def test_answer_never_contains_text_outside_the_sources():
+    topic = apollo.pick_topic("is it infected?")
+    source = {"n": 1, "title": "T", "domain": "nhs.uk", "text": PAGE, "snippet": ""}
+    text, _ = apollo.extractive_answer([source], topic, "en", offline=False, message="pus?")
+    body = text.split("\n\n", 1)[1].replace(" [1]", "")
+    for line in body.splitlines():
+        assert line.removeprefix("\u2022 ").strip(" .") in PAGE
+
+
+def test_page_with_nothing_relevant_says_not_sure():
+    topic = apollo.pick_topic("can I swim?")
+    source = {"n": 1, "title": "T", "domain": "nhs.uk", "text": "Cookie settings. Menu. Log in.", "snippet": ""}
+    text, used = apollo.extractive_answer([source], topic, "en", offline=False, message="can I swim")
+    assert text == apollo.NOT_SURE["en"] and used == []
+
+
+def test_chat_response_has_no_llm_field(live):
+    reply = asyncio.run(apollo.answer("is it infected?", "en", None))
+    assert "llm_used" not in reply["guidance"]
+
+
+UK_PAGE = """
+## Urgent advice: Ask for an urgent GP appointment or get help from NHS 111 if:
+
+* a cut is swollen, red and getting more painful or pus is coming out of it
+
+You can call 111 or get help from 111 online.
+
+## Immediate action required: Call 999 or go to A&E if:
+
+* you have a cut and cannot stop the bleeding
+"""
+
+
+def test_uk_phone_numbers_never_reach_the_user():
+    sentences = apollo.split_sentences(UK_PAGE)
+    joined = " ".join(sentences)
+    for banned in ("111", "999", "A&E", "NHS"):
+        assert banned not in joined
+    assert any(s.startswith("See a doctor soon if: a cut is swollen") for s in sentences)
+    assert any(s.startswith("Get emergency help if: you have a cut and cannot stop the bleeding") for s in sentences)
+
+
+def test_bullets_keep_their_condition():
+    topic = apollo.pick_topic("pus and swelling")
+    source = {"n": 1, "title": "T", "domain": "nhs.uk", "text": UK_PAGE, "snippet": ""}
+    text, _ = apollo.extractive_answer([source], topic, "en", offline=False, message="pus and swelling")
+    assert "See a doctor soon if:" in text

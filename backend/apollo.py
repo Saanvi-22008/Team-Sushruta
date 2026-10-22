@@ -1,11 +1,12 @@
 """Apollo: answers wound-care questions only from trusted, cited sources.
 
 Safety order (never reversed):
-1. Deterministic red-flag and status checks decide whether to escalate. The LLM
-   and TinyFish content can never turn an escalation off.
+1. Deterministic red-flag and status checks decide whether to escalate. TinyFish
+   content can never turn an escalation off.
 2. TinyFish supplies live guidance from an allow-list of health sites.
-3. The LLM may only reword those sources. Any answer that cites a source that
-   was not supplied is rejected and replaced by a plain extract of the sources.
+3. The answer is built only from sentences taken from those pages, chosen by
+   how well they match the question (computed here, nothing is sent out) and
+   cited. No language model writes or rewords anything.
 4. If TinyFish is unavailable, saved notes are used and clearly labelled.
 """
 
@@ -21,7 +22,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from backend import llm, store, tinyfish
+from backend import store, tinyfish
 
 logger = logging.getLogger("sushruta.apollo")
 
@@ -56,8 +57,8 @@ NOT_SURE = {
     "hi": "मेरे पास मौजूद स्रोतों से मैं इस बारे में निश्चित नहीं हूँ। कृपया डॉक्टर से सलाह लें।",
 }
 LEAD_LIVE = {
-    "en": "I couldn't write a summary right now. Here is what the trusted sources say:",
-    "hi": "अभी सारांश नहीं लिख सका। भरोसेमंद स्रोतों में यह जानकारी मिली (अंग्रेज़ी में):",
+    "en": "Here is what trusted health sites say about this:",
+    "hi": "भरोसेमंद स्वास्थ्य वेबसाइटों में यह जानकारी मिली (अंग्रेज़ी में):",
 }
 LEAD_OFFLINE = {
     "en": "I couldn't reach live guidance, so this comes from the team's saved notes:",
@@ -219,29 +220,6 @@ def _domain(url: str) -> str:
     return (urlparse(url).hostname or "").removeprefix("www.")
 
 
-def validate_llm_answer(parsed: Any, n_sources: int) -> dict[str, Any] | None:
-    """Accept an LLM answer only if every citation points at a supplied source."""
-    if not isinstance(parsed, dict):
-        return None
-    if parsed.get("covered") is False:
-        return {"covered": False, "answer": "", "citations": []}
-    answer = parsed.get("answer")
-    cites = parsed.get("citations")
-    if not isinstance(answer, str) or not answer.strip() or len(answer) > 1500:
-        return None
-    if not isinstance(cites, list) or not cites:
-        return None
-    clean: set[int] = set()
-    for item in cites:
-        if isinstance(item, bool) or not isinstance(item, int) or item < 1 or item > n_sources:
-            return None
-        clean.add(item)
-    inline = {int(m) for m in re.findall(r"\[(\d+)\]", answer)}
-    if any(i < 1 or i > n_sources for i in inline):
-        return None
-    return {"covered": True, "answer": answer.strip(), "citations": sorted(clean | inline)}
-
-
 def offline_sources(topic: dict[str, Any], language: str) -> list[dict[str, Any]]:
     topics = KNOWLEDGE["topics"]
     entry = topics.get(topic["id"]) or topics["general"]
@@ -373,17 +351,141 @@ async def gather_guidance(topic: dict[str, Any], language: str) -> dict[str, Any
     return {"mode": "offline", "sources": offline_sources(topic, language), "calls": calls}
 
 
+_STOP = {
+    "this", "that", "what", "when", "where", "which", "with", "have", "does", "should", "would", "could",
+    "there", "their", "about", "from", "into", "your", "mine", "than", "then", "them", "they", "will",
+    "just", "very", "much", "more", "some", "been", "being", "will", "wound", "normal",
+}
+_JUNK = re.compile(
+    r"cookie|©|copyright|subscribe|sign up|skip to|privacy|terms of|follow us|share this|"
+    r"\bmenu\b|log ?in|javascript|advert|newsletter|download|donate|nearest A&E",
+    re.I,
+)
+# Sources are often UK pages. Their emergency numbers would mislead users in India,
+# so sentences that name them are dropped and urgency lead-ins are relabelled.
+_UK_ONLY = re.compile(r"\b(999|111|A&E|NHS)\b")
+_LEAD_URGENT = re.compile(r"urgent|appointment|\b111\b", re.I)
+_LEAD_EMERGENCY = re.compile(r"immediate action|\b999\b|A&E|emergency", re.I)
+
+
+def _relabel_lead(lead: str) -> str:
+    if _LEAD_EMERGENCY.search(lead):
+        return "Get emergency help if:"
+    if _LEAD_URGENT.search(lead):
+        return "See a doctor soon if:"
+    return lead
+_ACTION = re.compile(r"\b(should|keep|contact|call|seek|clean|change|avoid|watch|see a|get medical|wash|cover)\b", re.I)
+
+
+def _strip_markdown(text: str) -> str:
+    text = re.sub(r"!\[[^\]]*\]\([^)]*\)", " ", text)
+    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)
+    text = re.sub(r"https?://\S+", " ", text)
+    return re.sub(r"[`*#>|]+", " ", text)
+
+
+def split_sentences(text: str) -> list[str]:
+    """Readable sentences from a page, with menus, links and boilerplate dropped.
+
+    A bullet that follows a lead-in such as "Urgent advice: ask for a GP if:"
+    keeps that lead-in, so the advice is never shown without its condition.
+    """
+    found: list[str] = []
+    lead = ""
+    for raw in re.split(r"\n+", text):
+        line = _strip_markdown(raw).strip()
+        if not line:
+            continue
+        is_heading = raw.lstrip().startswith("#")
+        is_bullet = bool(re.match(r"^\s*([*\-\u2022]|\d+[.)])\s", raw))
+        line = re.sub(r"^[\s\-\u2022\d.)]+", "", line).strip()
+        line = re.sub(r"\s+", " ", line)
+        if line.endswith(":"):
+            lead = _relabel_lead(line.rstrip(":").strip() + ":")
+            continue
+        if is_heading:
+            lead = ""
+            continue
+        parts = [line] if is_bullet else re.split(r"(?<=[.!?])\s+(?=[A-Z])", line)
+        for part in parts:
+            sentence = part.strip()
+            if is_bullet and lead:
+                sentence = f"{lead} {sentence}"
+            if (
+                35 <= len(sentence) <= 380
+                and len(sentence.split()) >= 6
+                and not _JUNK.search(sentence)
+                and not _UK_ONLY.search(sentence)
+                and sentence not in found
+            ):
+                found.append(sentence)
+        if not is_bullet:
+            lead = ""
+    return found
+
+
+def question_terms(message: str) -> set[str]:
+    words = re.findall(r"[a-z]{4,}", message.lower())
+    return {w for w in words if w not in _STOP}
+
+
+def pick_sentences(
+    text: str,
+    topic_patterns: list[re.Pattern[str]],
+    terms: set[str],
+    count: int,
+    taken: set[str],
+) -> list[str]:
+    """The sentences that best match the topic and the question, in page order.
+
+    A sentence must match the topic or the question to be considered at all;
+    generic words like "call" or "doctor" only break ties.
+    """
+    scored: list[tuple[int, int, str]] = []
+    for index, sentence in enumerate(split_sentences(text)):
+        key = sentence.lower()
+        if key in taken:
+            continue
+        topic_hits = sum(1 for pattern in topic_patterns if pattern.search(sentence))
+        term_hits = sum(1 for term in terms if term in key)
+        if topic_hits + term_hits == 0:
+            continue
+        generic_hits = sum(1 for pattern in _compile(GENERIC_PATTERNS) if pattern.search(sentence))
+        urgent = 2 if sentence.startswith(("See a doctor soon if:", "Get emergency help if:")) else 0
+        score = topic_hits * 3 + term_hits * 3 + generic_hits + urgent + (1 if _ACTION.search(sentence) else 0)
+        scored.append((score, index, sentence))
+    chosen: list[tuple[int, str]] = []
+    total = 0
+    for score, index, sentence in sorted(scored, key=lambda item: (-item[0], item[1])):
+        if len(chosen) == count or total + len(sentence) > 560:
+            continue
+        chosen.append((index, sentence))
+        total += len(sentence)
+    ordered = [sentence for _, sentence in sorted(chosen)]
+    taken.update(sentence.lower() for sentence in ordered)
+    return ordered
+
+
 def extractive_answer(
-    sources: list[dict[str, Any]], topic: dict[str, Any], language: str, offline: bool
+    sources: list[dict[str, Any]], topic: dict[str, Any], language: str, offline: bool, message: str = ""
 ) -> tuple[str, list[int]]:
-    """A plain, quoted summary built without any LLM."""
+    """An answer made only of sentences from the sources. No language model."""
     patterns = _compile(topic["en"] + GENERIC_PATTERNS)
+    topic_patterns = _compile(topic["en"])
+    terms = question_terms(message)
     lead = (LEAD_OFFLINE if offline else LEAD_LIVE)[language]
+    taken: set[str] = set()
     lines: list[str] = []
     used: list[int] = []
-    for source in sources[:2]:
-        excerpt = best_excerpt(str(source.get("text") or source.get("snippet") or ""), patterns)
-        if excerpt:
+    for rank, source in enumerate(sources[:2]):
+        body = str(source.get("text") or source.get("snippet") or "")
+        picked = pick_sentences(body, topic_patterns, terms, 3 if rank == 0 else 2, taken)
+        if picked:
+            lines.append("\n".join(f"\u2022 {sentence}" for sentence in picked) + f" [{source['n']}]")
+            used.append(source["n"])
+        elif (excerpt := best_excerpt(body, patterns)) and not _JUNK.search(excerpt) and any(
+            pattern.search(excerpt) for pattern in patterns
+        ):
             lines.append(f"{excerpt} [{source['n']}]")
             used.append(source["n"])
     if not lines:
@@ -402,22 +504,12 @@ async def answer(
     guidance = await gather_guidance(topic, lang)
     sources: list[dict[str, Any]] = guidance["sources"]
     mode: str = guidance["mode"]
-    used_llm = False
 
     if mode == "offline":
         text, cited = sources[0]["text"], [1]
         text = f"{LEAD_OFFLINE[lang]}\n\n{text} [1]"
     else:
-        validated = None
-        if llm.configured():
-            parsed = await llm.generate(message, lang, sources, wound_state)
-            validated = validate_llm_answer(parsed, len(sources))
-        if validated and validated["covered"] is False:
-            text, cited = NOT_SURE[lang], []
-        elif validated:
-            text, cited, used_llm = validated["answer"], validated["citations"], True
-        else:
-            text, cited = extractive_answer(sources, topic, lang, offline=False)
+        text, cited = extractive_answer(sources, topic, lang, offline=False, message=message)
 
     citations = [
         {
@@ -439,7 +531,6 @@ async def answer(
             "query_sent": topic["query"] if any(c["kind"] == "search" and c["status"] == "ok" for c in guidance["calls"]) else None,
             "source_count": len(sources) if mode != "offline" else 0,
             "domain_count": len({s["domain"] for s in sources}) if mode != "offline" else 0,
-            "llm_used": used_llm,
         },
         "calls": guidance["calls"],
     }

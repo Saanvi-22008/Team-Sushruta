@@ -20,6 +20,8 @@ services:
     environment:
       PORT: "8080"
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://sushruta:local-demo-only@postgres:5432/sushruta}
+      # Optional. Without this key Apollo falls back to its saved offline notes.
+      TINYFISH_API_KEY: ${TINYFISH_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
